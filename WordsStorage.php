@@ -9,6 +9,8 @@ class WordsStorage
     protected $_fileDescriptor;
     protected $_packFormat = "S";
 
+    protected $_debug = false;
+
     /**
      * @param string $dir location for temporary files
      * @throws Exception
@@ -21,6 +23,15 @@ class WordsStorage
 
 		$this->_dir = $dir;
 	}
+
+    public function __destruct()
+    {
+        if (false === $this->_debug) {
+            foreach (glob("{$this->_dir}/*.txt") as $filename) {
+                unlink($filename);
+            }
+        }
+    }
 
     /**
      * Increment word count and save
@@ -39,6 +50,27 @@ class WordsStorage
 
         $this->_rewriteAndClose($word, $count);
 	}
+
+    public function saveResult($location)
+    {
+        $this->_fileDescriptor = fopen($location, "w");
+
+        foreach (glob("{$this->_dir}/*.txt") as $filename) {
+            $tmp = fopen($filename, "r");
+            while ($line = fgets($tmp)) {
+                if (empty($line)) {
+                    continue;
+                }
+                list($fileWord, $count) = explode(" ", $line);
+                $count = base64_decode($count);
+                $count = array_pop((unpack($this->_packFormat, $count)));
+                fwrite($this->_fileDescriptor, "$fileWord $count" . PHP_EOL);
+            }
+            fclose($tmp);
+        }
+
+        fclose($this->_fileDescriptor);
+    }
 
     protected function _rewriteAndClose($word, $count)
     {
@@ -102,4 +134,11 @@ class WordsStorage
         $this->_packFormat = $packFormat;
     }
 
+    /**
+     * @param boolean $debug
+     */
+    public function setDebug($debug)
+    {
+        $this->_debug = $debug;
+    }
 }
